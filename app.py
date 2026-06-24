@@ -49,7 +49,7 @@ st.sidebar.info("""
 def analyze_data(data_string):
     """Send financial data to Claude for analysis"""
     message = client.messages.create(
-        model="claude-opus-4-6",
+        model="claude-sonnet-4-6",
         max_tokens=1500,
         messages=[
             {
