@@ -1,91 +1,39 @@
-"""
-Financial Analysis Agent
-Analyzes financial data using Claude AI
-"""
+import os
+import sys
 
 import pandas as pd
-from anthropic import Anthropic
-import os
 from dotenv import load_dotenv
 
-# Load environment variables
+from finance_model import build_ai_prompt, build_cfo_memo, normalize_financials, summarize_financials
+
+
 load_dotenv()
 
-# Initialize Claude client
-client = Anthropic()
 
-def analyze_financial_data(csv_file_path):
-    """
-    Financial Analysis Agent that takes CSV data and analyzes it using Claude
-    
-    Args:
-        csv_file_path: Path to CSV file with financial data
-        
-    Returns:
-        Claude's analysis as a string
-    """
-    
-    try:
-        # Read the CSV file
-        df = pd.read_csv(csv_file_path)
-        
-        # Convert to string for Claude to analyze
-        data_string = df.to_string()
-        
-        # Send to Claude for analysis
-        message = client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=1500,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"""
-                    You are a financial analysis expert. Analyze this financial data and provide detailed insights:
-                    
-                    {data_string}
-                    
-                    Please provide:
-                    1. **Top 3 Key Findings** - What stands out most?
-                    2. **Profitability Analysis** - Calculate margins, trends
-                    3. **Problems & Opportunities** - What needs attention?
-                    4. **Specific Recommendations** - 3-5 actionable steps
-                    
-                    Be concise, specific, and use numbers. Format as clear sections.
-                    """
-                }
-            ]
-        )
-        
-        return message.content[0].text
-    
-    except FileNotFoundError:
-        return f"Error: File '{csv_file_path}' not found"
-    except Exception as e:
-        return f"Error: {str(e)}"
+def analyze_financial_data(csv_file_path: str, use_ai: bool = False) -> str:
+    df = pd.read_csv(csv_file_path)
+    prepared = normalize_financials(df)
+    summary = summarize_financials(df)
+
+    if not use_ai or not os.getenv("ANTHROPIC_API_KEY"):
+        return build_cfo_memo(summary, prepared)
+
+    from anthropic import Anthropic
+
+    client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+    message = client.messages.create(
+        model=model,
+        max_tokens=1200,
+        messages=[{"role": "user", "content": build_ai_prompt(prepared, summary)}],
+    )
+    return message.content[0].text
 
 
-def main():
-    """Main function to run the agent"""
-    print("=" * 60)
-    print("💰 FINANCIAL ANALYSIS AGENT")
-    print("=" * 60)
-    print("\nThis agent analyzes financial data using Claude AI\n")
-    
-    # Get CSV file path from user
-    csv_file = input("Enter CSV file path (or press Enter for sample_data.csv): ").strip()
-    
-    if not csv_file:
-        csv_file = "sample_data.csv"
-    
-    print(f"\n🔍 Analyzing {csv_file}...")
-    print("-" * 60)
-    
-    # Analyze the data
-    analysis = analyze_financial_data(csv_file)
-    
-    print("\n📊 ANALYSIS RESULTS:\n")
-    print(analysis)
-    print("\n" + "=" * 60)
+def main() -> None:
+    csv_file = sys.argv[1] if len(sys.argv) > 1 else "sample_data.csv"
+    use_ai = "--ai" in sys.argv
+    print(analyze_financial_data(csv_file, use_ai=use_ai))
 
 
 if __name__ == "__main__":
