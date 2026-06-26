@@ -56,6 +56,12 @@ Do not commit real API keys. `.env`, `.env.*`, `.en`, and Streamlit secrets are 
 python -m unittest discover -s tests
 ```
 
+Or run the full local validation script:
+
+```bash
+python scripts/validate.py
+```
+
 ## CLI Mode
 
 ```bash
